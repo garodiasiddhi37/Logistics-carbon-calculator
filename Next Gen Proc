@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logistics Carbon Calculator - Live Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-dark: #0A1828;
+            --primary-blue: #178582;
+            --accent-green: #2DD881;
+            --accent-orange: #FF6B35;
+            --accent-yellow: #F7B801;
+            --bg-light: #F8F9FA;
+            --bg-card: #FFFFFF;
+            --text-dark: #1A1A1A;
+            --text-muted: #6C757D;
+            --border: #E0E0E0;
+            --shadow: rgba(0, 0, 0, 0.08);
+            --shadow-hover: rgba(0, 0, 0, 0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Archivo', sans-serif;
+            background: linear-gradient(135deg, #0A1828 0%, #1a3a4a 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(23, 133, 130, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(45, 216, 129, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #1a9a96 100%);
+            padding: 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .header h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: 2.5em;
+            color: white;
+            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1em;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: var(--bg-card);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px var(--shadow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-blue), var(--accent-green));
+        }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px var(--shadow-hover);
+            border-color: var(--primary-blue);
+        }
+
+        .summary-card h3 {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .summary-card .value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 5px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .summary-card .unit {
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .tab {
+            background: var(--bg-card);
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateY(-2px);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary-blue), #1a9a96);
+            color: white;
+            box-shadow: 0 4px 15px rgba(23, 133, 130, 0.3);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid var(--primary-blue);
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .calculator-card {
+            background: var(--bg-card);
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .calculator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .calculator-header h2 {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.5em;
+            color: var(--primary-dark);
+        }
+
+        .clear-btn {
+            background: var(--accent-orange);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .clear-btn:hover {
+            background: #e55a2b;
+            transform: scale(1.05);
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+            font-size: 0.95em;
+        }
+
+        .input-group input,
+        .input-group select {
+            padding: 12px 15px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1em;
+            font-family: 'Archivo', sans-serif;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 4px rgba(23, 133, 130, 0.1);
+        }
+
+        .input-group .helper {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, var(--accent-green) 0%, #26c272 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .result-box h3 {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .result-box .result-value {
+            font-size: 3em;
+            font-weight: 700;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .result-box .result-unit {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .entry-row {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary-blue);
+            transition: all 0.3s ease;
+        }
+
+        .entry-row:hover {
+            box-shadow: 0 4px 15px var(--shadow);
+        }
+
+        .add-entry-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .add-entry-btn:hover {
+            background: #1a9a96;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(23, 133, 130, 0.3);
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px var(--shadow);
+            margin-bottom: 20px;
+            height: 400px;
+        }
+
+        .info-banner {
+            background: linear-gradient(135deg, rgba(247, 184, 1, 0.1), rgba(255, 107, 53, 0.1));
+            border-left: 4px solid var(--accent-yellow);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+            color: var(--text-dark);
+        }
+
+        .equivalents {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .equivalent-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .equivalent-card:hover {
+            border-color: var(--primary-blue);
+            transform: scale(1.02);
+        }
+
+        .equivalent-card .icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .equivalent-card .value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-family: 'Space Mono', monospace;
+        }
+
+        .equivalent-card .label {
+            font-size: 0.9em;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-wrap: nowrap;
+                overflow-x: scroll;
+            }
+        }
+
+        .remove-btn {
+            background: var(--accent-orange);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .remove-btn:hover {
+            background: #e55a2b;
+        }
+
+        .download-btn {
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .download-btn:hover {
+            background: #26c272;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 216, 129, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 Logistics Carbon Calculator</h1>
+            <p>Real-time emissions tracking for sustainable supply chain management</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card">
+                <h3>Total Emissions</h3>
+                <div class="value" id="totalEmissions">0</div>
+                <div class="unit">kg CO₂e</div>
+            </div>
+            <div class="summary-card">
+                <h3>Tonnes CO₂e</h3>
+                <div class="value" id="totalTonnes">0.00</div>
+                <div class="unit">tonnes</div>
+            </div>
+            <div class="summary-card">
+                <h3>Trees to Offset</h3>
+                <div class="value" id="treesNeeded">0</div>
+                <div class="unit">trees/year</div>
+            </div>
+            <div class="summary-card">
+                <h3>Car Equivalent</h3>
+                <div class="value" id="carKm">0</div>
+                <div class="unit">kilometers</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('road')">🚚 Road Transport</button>
+            <button class="tab" onclick="switchTab('air')">✈️ Air Freight</button>
+            <button class="tab" onclick="switchTab('sea')">🚢 Sea Freight</button>
+            <button class="tab" onclick="switchTab('rail')">🚂 Rail</button>
+            <button class="tab" onclick="switchTab('warehouse')">🏭 Warehousing</button>
+            <button class="tab" onclick="switchTab('lastmile')">📦 Last Mile</button>
+            <button class="tab" onclick="switchTab('dashboard')">📊 Dashboard</button>
+        </div>
+
+        <!-- Road Transport -->
+        <div id="road" class="content-section active">
+            <div class="calculator-card">
+                <div class="calculator-header">
+                    <h2>Road Transport Calculator</h2>
+                    <button class="clear-btn" onclick="clearSection('road')">Clear All</button>
+                </div>
+                
+                <div class="info-banner">
+                    💡 <strong>Tip:</strong> Road transport accounts for ~75% of freight emissions. Consider modal shift to rail or sea for long distances.
+                </div>
+
+                <div id="roadEntries"></div>
+                <button class="add-entry-btn" onclick="addRoadEntry()">+ Add Vehicle Entry</button>
+
+                <div class="result-box">
+                    <h3>Total Road Transport Emissions</h3>
+                    <div class="result-value" id="roadTotal">0.00</div>
+                    <div class="result-unit">kg CO₂e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Air Freight -->
+        <div id="air" class="content-section">
+            <div class="calculator-card">
+                <div class="calculator-header">
+                    <h2>Air Freight Calculator</h2>
+                    <button class="clear-btn" onclick="clearSection('air')">Clear All</button>
+                </div>
+                
+                <div class="info-banner" style="border-left-color: var(--accent-orange);">
+                    ⚠️ <strong>Note:</strong> Air freight has the highest emissions per tonne-km (60-100x higher than sea freight). Use only for urgent, time-sensitive cargo.
+                </div>
+
+                <div id="airEntries"></div>
+                <button class="add-entry-btn" onclick="addAirEntry()">+ Add Flight Entry</button>
+
+                <div class="result-box" style="background: linear-gradient(135deg, var(--accent-orange) 0%, #e55a2b 100%);">
+                    <h3>Total Air Freight Emissions</h3>
+                    <div class="result-value" id="airTotal">0.00</div>
+                    <div class="result-unit">kg CO₂e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sea Freight -->
+        <div id="sea" class="content-section">
+            <div class="calculator-card">
+                <div class="calculator-header">
+                    <h2>Sea Freight Calculator</h2>
+                    <button class="clear-btn" onclick="clearSection('sea')">Clear All</button>
+                </div>
+                
+                <div class="info-banner" style="border-left-color: var(--accent-green);">
+                    ✅ <strong>Green Choice:</strong> Sea freight has the lowest emissions per tonne-km among motorized transport modes.
+                </div>
+
+                <div id="seaEntries"></div>
+                <button class="add-entry-btn" onclick="addSeaEntry()">+ Add Shipment Entry</button>
+
+                <div class="result-box">
+                    <h3>Total Sea Freight Emissions</h3>
+                    <div class="result-value" id="seaTotal">0.00</div>
+                    <div class="result-unit">kg CO₂e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rail Transport -->
+        <div id="rail" class="content-section">
+            <div class="calculator-card">
+                <div class="calculator-header">
+                    <h2>Rail Transport Calculator</h2>
+                    <button class="clear-btn" onclick="clearSection('rail')">Clear All</button>
+                </div>
+                
+                <div class="info-banner" style="border-left-color: var(--accent-green);">
+                    🌱 <strong>Sustainable:</strong> Rail produces 75-90% less CO₂ than road transport for equivalent loads.
+                </div>
+
+                <div id="railEntries"></div>
+                <button class="add-entry-btn" onclick="addRailEntry()">+ Add Rail Entry</button>
+
+                <div class="result-box">
+                    <h3>Total Rail Transport Emissions</h3>
+                    <div class="result-value" id="railTotal">0.00</div>
+                    <div class="result-unit">kg CO₂e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warehousing -->
+        <div id="warehouse" class="content-section">
+            <div class="calculator-card">
+                <div class="calculator-header">
+                    <h2>Warehousing & Facilities Calculator</h2>
+                    <button class="clear-btn" onclick="clearSection('warehouse')">Clear All</button>
+                </div>
+
+                <h3 style="margin: 20px 0; color: var(--primary-dark);">Electricity Consumption (Scope 2)</h3>
+                <div id="warehouseEntries"></div>
+                <button class="add-entry-btn" onclick="addWarehouseEntry()">+ Add Facility</button>
+
+                <div class="result-box">
+                    <h3>Total Warehousing Emissions</h3>
+                    <div class="result-value" id="warehouseTotal">0.00</div>
+                    <div class="result-unit">kg CO₂e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Mile -->
+        <div id="lastmile" class="content-section">
+            <div class="calculator-card">
+                <div class="calculator-header">
+                    <h2>Last Mile Delivery Calculator</h2>
+                    <button class="clear-btn" onclick="clearSection('lastmile')">Clear All</button>
+                </div>
+                
+                <div class="info-banner">
+                    📍 <strong>Last Mile Impact:</strong> Accounts for 40-50% of total supply chain emissions despite being the shortest distance.
+                </div>
+
+                <div id="lastmileEntries"></div>
+                <button class="add-entry-btn" onclick="addLastMileEntry()">+ Add Delivery Method</button>
+
+                <div class="result-box">
+                    <h3>Total Last Mile Emissions</h3>
+                    <div class="result-value" id="lastmileTotal">0.00</div>
+                    <div class="result-unit">kg CO₂e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="content-section">
+            <div class="calculator-card">
+                <h2 style="margin-bottom: 20px; color: var(--primary-dark);">Emissions Breakdown</h2>
+                <div class="chart-container">
+                    <canvas id="emissionsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="calculator-card">
+                <h2 style="margin-bottom: 20px; color: var(--primary-dark);">Environmental Impact Equivalents</h2>
+                <div class="equivalents">
+                    <div class="equivalent-card">
+                        <div class="icon">🌳</div>
+                        <div class="value" id="eq-trees">0</div>
+                        <div class="label">Trees needed for 1 year</div>
+                    </div>
+                    <div class="equivalent-card">
+                        <div class="icon">🚗</div>
+                        <div class="value" id="eq-car">0</div>
+                        <div class="label">km driven by car</div>
+                    </div>
+                    <div class="equivalent-card">
+                        <div class="icon">🏠</div>
+                        <div class="value" id="eq-home">0.00</div>
+                        <div class="label">Household years</div>
+                    </div>
+                    <div class="equivalent-card">
+                        <div class="icon">✈️</div>
+                        <div class="value" id="eq-flight">0.00</div>
+                        <div class="label">Transatlantic flights</div>
+                    </div>
+                </div>
+
+                <button class="download-btn" onclick="downloadReport()">
+                    📥 Download Report (CSV)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Emission Factors (kg CO2e)
+        const FACTORS = {
+            road: {
+                'small-van': { factor: 0.436, name: 'Small Van (<3.5t)' },
+                'medium-truck': { factor: 0.209, name: 'Medium Truck (3.5-7.5t)' },
+                'large-truck': { factor: 0.111, name: 'Large Truck (7.5-17t)' },
+                'articulated': { factor: 0.062, name: 'Articulated Truck (>17t)' },
+                'electric-van': { factor: 0.087, name: 'Electric Van' },
+                'reefer': { factor: 0.086, name: 'Refrigerated Truck' }
+            },
+            air: {
+                'domestic': { factor: 1.12, rfi: 1.9, name: 'Domestic (<1000 km)' },
+                'short-haul': { factor: 0.96, rfi: 1.9, name: 'Short-haul (1000-3000 km)' },
+                'long-haul': { factor: 0.60, rfi: 1.9, name: 'Long-haul (>3000 km)' },
+                'freighter': { factor: 0.96, rfi: 1.9, name: 'Freighter Aircraft' },
+                'belly': { factor: 0.48, rfi: 1.9, name: 'Belly Cargo' }
+            },
+            sea: {
+                'container-small': { factor: 0.0163, name: 'Container Ship (Small)' },
+                'container-large': { factor: 0.0081, name: 'Container Ship (Large)' },
+                'bulk': { factor: 0.0068, name: 'Bulk Carrier' },
+                'tanker': { factor: 0.0059, name: 'Tanker' },
+                'roro': { factor: 0.0268, name: 'Ro-Ro (Vehicle Carrier)' },
+                'reefer': { factor: 0.0203, name: 'Refrigerated Container' }
+            },
+            rail: {
+                'electric': { factor: 0.014, name: 'Electric Rail (Freight)' },
+                'diesel': { factor: 0.022, name: 'Diesel Rail (Freight)' },
+                'intermodal-electric': { factor: 0.017, name: 'Intermodal (Electric)' },
+                'intermodal-diesel': { factor: 0.028, name: 'Intermodal (Diesel)' }
+            },
+            warehouse: {
+                'standard': { intensity: 40, name: 'Standard Warehouse' },
+                'cold-storage': { intensity: 150, name: 'Cold Storage Facility' },
+                'automated': { intensity: 65, name: 'Automated DC' },
+                'cross-dock': { intensity: 30, name: 'Cross-dock Facility' }
+            },
+            lastmile: {
+                'van-diesel': { factor: 0.500, name: 'Van - Diesel' },
+                'van-electric': { factor: 0.100, name: 'Van - Electric' },
+                'motorcycle': { factor: 0.080, name: 'Motorcycle/Scooter' },
+                'ebike': { factor: 0.010, name: 'E-bike/Cargo Bike' },
+                'walking': { factor: 0.000, name: 'Walking Courier' },
+                'drone': { factor: 0.050, name: 'Drone Delivery' }
+            }
+        };
+
+        // Global data storage
+        let data = {
+            road: [],
+            air: [],
+            sea: [],
+            rail: [],
+            warehouse: [],
+            lastmile: []
+        };
+
+        let chart = null;
+        let entryCounters = {
+            road: 0,
+            air: 0,
+            sea: 0,
+            rail: 0,
+            warehouse: 0,
+            lastmile: 0
+        };
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab).classList.add('active');
+
+            if (tab === 'dashboard') {
+                updateChart();
+            }
+        }
+
+        // Add entry functions
+        function addRoadEntry() {
+            const id = entryCounters.road++;
+            const html = `
+                <div class="entry-row" id="road-entry-${id}">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Vehicle Type</label>
+                            <select id="road-type-${id}" onchange="calculateRoad()">
+                                ${Object.keys(FACTORS.road).map(key => 
+                                    `<option value="${key}">${FACTORS.road[key].name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Load (tonnes)</label>
+                            <input type="number" id="road-load-${id}" value="10" min="0" step="0.1" onchange="calculateRoad()">
+                        </div>
+                        <div class="input-group">
+                            <label>Distance (km)</label>
+                            <input type="number" id="road-distance-${id}" value="100" min="0" step="1" onchange="calculateRoad()">
+                        </div>
+                        <div class="input-group">
+                            <label>Emissions</label>
+                            <input type="text" id="road-result-${id}" value="0.00 kg CO₂e" readonly style="background: #e8f5e9; font-weight: 600;">
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeEntry('road', ${id})">Remove Entry</button>
+                </div>
+            `;
+            document.getElementById('roadEntries').insertAdjacentHTML('beforeend', html);
+            calculateRoad();
+        }
+
+        function addAirEntry() {
+            const id = entryCounters.air++;
+            const html = `
+                <div class="entry-row" id="air-entry-${id}">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Route Type</label>
+                            <select id="air-type-${id}" onchange="calculateAir()">
+                                ${Object.keys(FACTORS.air).map(key => 
+                                    `<option value="${key}">${FACTORS.air[key].name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Weight (tonnes)</label>
+                            <input type="number" id="air-weight-${id}" value="5" min="0" step="0.1" onchange="calculateAir()">
+                        </div>
+                        <div class="input-group">
+                            <label>Distance (km)</label>
+                            <input type="number" id="air-distance-${id}" value="5000" min="0" step="1" onchange="calculateAir()">
+                        </div>
+                        <div class="input-group">
+                            <label>Emissions</label>
+                            <input type="text" id="air-result-${id}" value="0.00 kg CO₂e" readonly style="background: #fff3e0; font-weight: 600;">
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeEntry('air', ${id})">Remove Entry</button>
+                </div>
+            `;
+            document.getElementById('airEntries').insertAdjacentHTML('beforeend', html);
+            calculateAir();
+        }
+
+        function addSeaEntry() {
+            const id = entryCounters.sea++;
+            const html = `
+                <div class="entry-row" id="sea-entry-${id}">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Vessel Type</label>
+                            <select id="sea-type-${id}" onchange="calculateSea()">
+                                ${Object.keys(FACTORS.sea).map(key => 
+                                    `<option value="${key}">${FACTORS.sea[key].name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Weight (tonnes)</label>
+                            <input type="number" id="sea-weight-${id}" value="20" min="0" step="0.1" onchange="calculateSea()">
+                        </div>
+                        <div class="input-group">
+                            <label>Distance (km)</label>
+                            <input type="number" id="sea-distance-${id}" value="10000" min="0" step="1" onchange="calculateSea()">
+                        </div>
+                        <div class="input-group">
+                            <label>Emissions</label>
+                            <input type="text" id="sea-result-${id}" value="0.00 kg CO₂e" readonly style="background: #e8f5e9; font-weight: 600;">
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeEntry('sea', ${id})">Remove Entry</button>
+                </div>
+            `;
+            document.getElementById('seaEntries').insertAdjacentHTML('beforeend', html);
+            calculateSea();
+        }
+
+        function addRailEntry() {
+            const id = entryCounters.rail++;
+            const html = `
+                <div class="entry-row" id="rail-entry-${id}">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Rail Type</label>
+                            <select id="rail-type-${id}" onchange="calculateRail()">
+                                ${Object.keys(FACTORS.rail).map(key => 
+                                    `<option value="${key}">${FACTORS.rail[key].name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Weight (tonnes)</label>
+                            <input type="number" id="rail-weight-${id}" value="15" min="0" step="0.1" onchange="calculateRail()">
+                        </div>
+                        <div class="input-group">
+                            <label>Distance (km)</label>
+                            <input type="number" id="rail-distance-${id}" value="500" min="0" step="1" onchange="calculateRail()">
+                        </div>
+                        <div class="input-group">
+                            <label>Emissions</label>
+                            <input type="text" id="rail-result-${id}" value="0.00 kg CO₂e" readonly style="background: #e8f5e9; font-weight: 600;">
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeEntry('rail', ${id})">Remove Entry</button>
+                </div>
+            `;
+            document.getElementById('railEntries').insertAdjacentHTML('beforeend', html);
+            calculateRail();
+        }
+
+        function addWarehouseEntry() {
+            const id = entryCounters.warehouse++;
+            const html = `
+                <div class="entry-row" id="warehouse-entry-${id}">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Facility Type</label>
+                            <select id="warehouse-type-${id}" onchange="calculateWarehouse()">
+                                ${Object.keys(FACTORS.warehouse).map(key => 
+                                    `<option value="${key}">${FACTORS.warehouse[key].name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Area (sq m)</label>
+                            <input type="number" id="warehouse-area-${id}" value="5000" min="0" step="100" onchange="calculateWarehouse()">
+                        </div>
+                        <div class="input-group">
+                            <label>Grid Factor (kg CO₂e/kWh)</label>
+                            <input type="number" id="warehouse-grid-${id}" value="0.5" min="0" step="0.01" onchange="calculateWarehouse()">
+                            <span class="helper">0.5 = average, 0.9 = coal, 0.05 = renewable</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Annual Emissions</label>
+                            <input type="text" id="warehouse-result-${id}" value="0.00 kg CO₂e" readonly style="background: #e8f5e9; font-weight: 600;">
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeEntry('warehouse', ${id})">Remove Entry</button>
+                </div>
+            `;
+            document.getElementById('warehouseEntries').insertAdjacentHTML('beforeend', html);
+            calculateWarehouse();
+        }
+
+        function addLastMileEntry() {
+            const id = entryCounters.lastmile++;
+            const html = `
+                <div class="entry-row" id="lastmile-entry-${id}">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Delivery Method</label>
+                            <select id="lastmile-type-${id}" onchange="calculateLastMile()">
+                                ${Object.keys(FACTORS.lastmile).map(key => 
+                                    `<option value="${key}">${FACTORS.lastmile[key].name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Parcels Delivered</label>
+                            <input type="number" id="lastmile-parcels-${id}" value="100" min="0" step="1" onchange="calculateLastMile()">
+                        </div>
+                        <div class="input-group">
+                            <label>Avg Distance per Delivery (km)</label>
+                            <input type="number" id="lastmile-distance-${id}" value="5" min="0" step="0.1" onchange="calculateLastMile()">
+                        </div>
+                        <div class="input-group">
+                            <label>Emissions</label>
+                            <input type="text" id="lastmile-result-${id}" value="0.00 kg CO₂e" readonly style="background: #e8f5e9; font-weight: 600;">
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeEntry('lastmile', ${id})">Remove Entry</button>
+                </div>
+            `;
+            document.getElementById('lastmileEntries').insertAdjacentHTML('beforeend', html);
+            calculateLastMile();
+        }
+
+        // Calculation functions
+        function calculateRoad() {
+            let total = 0;
+            for (let i = 0; i < entryCounters.road; i++) {
+                const typeEl = document.getElementById(`road-type-${i}`);
+                const loadEl = document.getElementById(`road-load-${i}`);
+                const distanceEl = document.getElementById(`road-distance-${i}`);
+                const resultEl = document.getElementById(`road-result-${i}`);
+
+                if (typeEl && loadEl && distanceEl) {
+                    const type = typeEl.value;
+                    const load = parseFloat(loadEl.value) || 0;
+                    const distance = parseFloat(distanceEl.value) || 0;
+                    const factor = FACTORS.road[type].factor;
+                    const emissions = load * distance * factor;
+                    
+                    total += emissions;
+                    if (resultEl) {
+                        resultEl.value = `${emissions.toFixed(2)} kg CO₂e`;
+                    }
+                }
+            }
+            document.getElementById('roadTotal').textContent = total.toFixed(2);
+            updateSummary();
+        }
+
+        function calculateAir() {
+            let total = 0;
+            for (let i = 0; i < entryCounters.air; i++) {
+                const typeEl = document.getElementById(`air-type-${i}`);
+                const weightEl = document.getElementById(`air-weight-${i}`);
+                const distanceEl = document.getElementById(`air-distance-${i}`);
+                const resultEl = document.getElementById(`air-result-${i}`);
+
+                if (typeEl && weightEl && distanceEl) {
+                    const type = typeEl.value;
+                    const weight = parseFloat(weightEl.value) || 0;
+                    const distance = parseFloat(distanceEl.value) || 0;
+                    const factor = FACTORS.air[type].factor;
+                    const rfi = FACTORS.air[type].rfi;
+                    const emissions = weight * distance * factor * rfi;
+                    
+                    total += emissions;
+                    if (resultEl) {
+                        resultEl.value = `${emissions.toFixed(2)} kg CO₂e`;
+                    }
+                }
+            }
+            document.getElementById('airTotal').textContent = total.toFixed(2);
+            updateSummary();
+        }
+
+        function calculateSea() {
+            let total = 0;
+            for (let i = 0; i < entryCounters.sea; i++) {
+                const typeEl = document.getElementById(`sea-type-${i}`);
+                const weightEl = document.getElementById(`sea-weight-${i}`);
+                const distanceEl = document.getElementById(`sea-distance-${i}`);
+                const resultEl = document.getElementById(`sea-result-${i}`);
+
+                if (typeEl && weightEl && distanceEl) {
+                    const type = typeEl.value;
+                    const weight = parseFloat(weightEl.value) || 0;
+                    const distance = parseFloat(distanceEl.value) || 0;
+                    const factor = FACTORS.sea[type].factor;
+                    const emissions = weight * distance * factor;
+                    
+                    total += emissions;
+                    if (resultEl) {
+                        resultEl.value = `${emissions.toFixed(2)} kg CO₂e`;
+                    }
+                }
+            }
+            document.getElementById('seaTotal').textContent = total.toFixed(2);
+            updateSummary();
+        }
+
+        function calculateRail() {
+            let total = 0;
+            for (let i = 0; i < entryCounters.rail; i++) {
+                const typeEl = document.getElementById(`rail-type-${i}`);
+                const weightEl = document.getElementById(`rail-weight-${i}`);
+                const distanceEl = document.getElementById(`rail-distance-${i}`);
+                const resultEl = document.getElementById(`rail-result-${i}`);
+
+                if (typeEl && weightEl && distanceEl) {
+                    const type = typeEl.value;
+                    const weight = parseFloat(weightEl.value) || 0;
+                    const distance = parseFloat(distanceEl.value) || 0;
+                    const factor = FACTORS.rail[type].factor;
+                    const emissions = weight * distance * factor;
+                    
+                    total += emissions;
+                    if (resultEl) {
+                        resultEl.value = `${emissions.toFixed(2)} kg CO₂e`;
+                    }
+                }
+            }
+            document.getElementById('railTotal').textContent = total.toFixed(2);
+            updateSummary();
+        }
+
+        function calculateWarehouse() {
+            let total = 0;
+            for (let i = 0; i < entryCounters.warehouse; i++) {
+                const typeEl = document.getElementById(`warehouse-type-${i}`);
+                const areaEl = document.getElementById(`warehouse-area-${i}`);
+                const gridEl = document.getElementById(`warehouse-grid-${i}`);
+                const resultEl = document.getElementById(`warehouse-result-${i}`);
+
+                if (typeEl && areaEl && gridEl) {
+                    const type = typeEl.value;
+                    const area = parseFloat(areaEl.value) || 0;
+                    const grid = parseFloat(gridEl.value) || 0;
+                    const intensity = FACTORS.warehouse[type].intensity;
+                    const emissions = area * intensity * grid;
+                    
+                    total += emissions;
+                    if (resultEl) {
+                        resultEl.value = `${emissions.toFixed(2)} kg CO₂e`;
+                    }
+                }
+            }
+            document.getElementById('warehouseTotal').textContent = total.toFixed(2);
+            updateSummary();
+        }
+
+        function calculateLastMile() {
+            let total = 0;
+            for (let i = 0; i < entryCounters.lastmile; i++) {
+                const typeEl = document.getElementById(`lastmile-type-${i}`);
+                const parcelsEl = document.getElementById(`lastmile-parcels-${i}`);
+                const distanceEl = document.getElementById(`lastmile-distance-${i}`);
+                const resultEl = document.getElementById(`lastmile-result-${i}`);
+
+                if (typeEl && parcelsEl && distanceEl) {
+                    const type = typeEl.value;
+                    const parcels = parseFloat(parcelsEl.value) || 0;
+                    const distance = parseFloat(distanceEl.value) || 0;
+                    const factor = FACTORS.lastmile[type].factor;
+                    const emissions = parcels * factor;
+                    
+                    total += emissions;
+                    if (resultEl) {
+                        resultEl.value = `${emissions.toFixed(2)} kg CO₂e`;
+                    }
+                }
+            }
+            document.getElementById('lastmileTotal').textContent = total.toFixed(2);
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const road = parseFloat(document.getElementById('roadTotal').textContent) || 0;
+            const air = parseFloat(document.getElementById('airTotal').textContent) || 0;
+            const sea = parseFloat(document.getElementById('seaTotal').textContent) || 0;
+            const rail = parseFloat(document.getElementById('railTotal').textContent) || 0;
+            const warehouse = parseFloat(document.getElementById('warehouseTotal').textContent) || 0;
+            const lastmile = parseFloat(document.getElementById('lastmileTotal').textContent) || 0;
+
+            const total = road + air + sea + rail + warehouse + lastmile;
+            const tonnes = total / 1000;
+            const trees = Math.round(total / 21);
+            const carKm = Math.round(total / 0.171);
+
+            document.getElementById('totalEmissions').textContent = total.toFixed(0);
+            document.getElementById('totalTonnes').textContent = tonnes.toFixed(2);
+            document.getElementById('treesNeeded').textContent = trees.toLocaleString();
+            document.getElementById('carKm').textContent = carKm.toLocaleString();
+
+            // Update equivalents in dashboard
+            document.getElementById('eq-trees').textContent = trees.toLocaleString();
+            document.getElementById('eq-car').textContent = carKm.toLocaleString();
+            document.getElementById('eq-home').textContent = (total / 7000).toFixed(2);
+            document.getElementById('eq-flight').textContent = (total / 1000).toFixed(2); // Assuming 1 tonne CO2 per transatlantic flight
+        }
+
+        function removeEntry(section, id) {
+            const entry = document.getElementById(`${section}-entry-${id}`);
+            if (entry) {
+                entry.remove();
+                switch(section) {
+                    case 'road': calculateRoad(); break;
+                    case 'air': calculateAir(); break;
+                    case 'sea': calculateSea(); break;
+                    case 'rail': calculateRail(); break;
+                    case 'warehouse': calculateWarehouse(); break;
+                    case 'lastmile': calculateLastMile(); break;
+                }
+            }
+        }
+
+        function clearSection(section) {
+            document.getElementById(`${section}Entries`).innerHTML = '';
+            entryCounters[section] = 0;
+            document.getElementById(`${section}Total`).textContent = '0.00';
+            updateSummary();
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('emissionsChart').getContext('2d');
+            
+            const road = parseFloat(document.getElementById('roadTotal').textContent) || 0;
+            const air = parseFloat(document.getElementById('airTotal').textContent) || 0;
+            const sea = parseFloat(document.getElementById('seaTotal').textContent) || 0;
+            const rail = parseFloat(document.getElementById('railTotal').textContent) || 0;
+            const warehouse = parseFloat(document.getElementById('warehouseTotal').textContent) || 0;
+            const lastmile = parseFloat(document.getElementById('lastmileTotal').textContent) || 0;
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Road Transport', 'Air Freight', 'Sea Freight', 'Rail', 'Warehousing', 'Last Mile'],
+                    datasets: [{
+                        data: [road, air, sea, rail, warehouse, lastmile],
+                        backgroundColor: [
+                            '#178582',
+                            '#FF6B35',
+                            '#2DD881',
+                            '#F7B801',
+                            '#4A90E2',
+                            '#9B59B6'
+                        ],
+                        borderWidth: 3,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 13,
+                                    family: 'Archivo'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value.toFixed(2)} kg CO₂e (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function downloadReport() {
+            const road = parseFloat(document.getElementById('roadTotal').textContent) || 0;
+            const air = parseFloat(document.getElementById('airTotal').textContent) || 0;
+            const sea = parseFloat(document.getElementById('seaTotal').textContent) || 0;
+            const rail = parseFloat(document.getElementById('railTotal').textContent) || 0;
+            const warehouse = parseFloat(document.getElementById('warehouseTotal').textContent) || 0;
+            const lastmile = parseFloat(document.getElementById('lastmileTotal').textContent) || 0;
+            const total = road + air + sea + rail + warehouse + lastmile;
+
+            let csv = 'Logistics Carbon Emissions Report\n\n';
+            csv += 'Category,Emissions (kg CO2e),Percentage\n';
+            csv += `Road Transport,${road.toFixed(2)},${((road/total)*100).toFixed(1)}%\n`;
+            csv += `Air Freight,${air.toFixed(2)},${((air/total)*100).toFixed(1)}%\n`;
+            csv += `Sea Freight,${sea.toFixed(2)},${((sea/total)*100).toFixed(1)}%\n`;
+            csv += `Rail Transport,${rail.toFixed(2)},${((rail/total)*100).toFixed(1)}%\n`;
+            csv += `Warehousing,${warehouse.toFixed(2)},${((warehouse/total)*100).toFixed(1)}%\n`;
+            csv += `Last Mile,${lastmile.toFixed(2)},${((lastmile/total)*100).toFixed(1)}%\n`;
+            csv += `\nTotal,${total.toFixed(2)},100%\n`;
+            csv += `\nTotal (tonnes CO2e),${(total/1000).toFixed(2)}\n`;
+            csv += `\nEquivalents:\n`;
+            csv += `Trees needed for offset (1 year),${Math.round(total/21)}\n`;
+            csv += `Car kilometers,${Math.round(total/0.171)}\n`;
+            csv += `Household years,${(total/7000).toFixed(2)}\n`;
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logistics-carbon-report-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Initialize with one entry for each section
+        window.onload = function() {
+            addRoadEntry();
+            addAirEntry();
+            addSeaEntry();
+            addRailEntry();
+            addWarehouseEntry();
+            addLastMileEntry();
+        };
+    </script>
+</body>
+</html>
